@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { generateSubtitlesFromAudioSegments } from "../services/subtitles.ts";
 import type {
   MotionPlan,
@@ -9,6 +11,22 @@ import type {
   VisualGenerationResult,
   VoiceOverResult,
 } from "../types/content.ts";
+
+/**
+ * Resolves the path to the system FFmpeg binary across standard and WinGet locations.
+ */
+export function getFFmpegBinaryPath(): string | null {
+  const candidates = [
+    "ffmpeg",
+    "ffmpeg.exe",
+    path.join(process.env.LOCALAPPDATA || "", "Microsoft", "WinGet", "Links", "ffmpeg.exe"),
+    "C:\\Program Files\\ffmpeg\\bin\\ffmpeg.exe",
+  ];
+  for (const c of candidates) {
+    if (existsSync(c)) return c;
+  }
+  return null;
+}
 
 /**
  * Builds an FFmpeg zoompan filter expression for a given motion plan and duration.
@@ -38,7 +56,6 @@ function buildZoompanFilter(motion?: MotionPlan, duration = 5, fps = 30): string
  */
 function compileFFmpegCommand(timeline: Timeline, outputPath: string): string {
   const videoTrack = timeline.tracks.find((t) => t.type === "video");
-  const narrationTrack = timeline.tracks.find((t) => t.type === "narration");
 
   const inputs: string[] = [];
   const filterChains: string[] = [];
@@ -60,9 +77,125 @@ function compileFFmpegCommand(timeline: Timeline, outputPath: string): string {
 }
 
 /**
+ * Executes automatic video rendering using the system FFmpeg binary.
+ */
+async function executeVideoRender(
+  scenePlan: ScenePlan,
+  visuals: VisualGenerationResult,
+  voiceOver: VoiceOverResult,
+  outputVideoPath: string
+): Promise<boolean> {
+  const ffmpegBin = getFFmpegBinaryPath();
+  if (!ffmpegBin) return false;
+
+  try {
+    const outputDir = path.dirname(outputVideoPath);
+    const scenesDir = path.join(outputDir, "scenes");
+    const audioDir = path.join(outputDir, "audio");
+    mkdirSync(scenesDir, { recursive: true });
+    mkdirSync(audioDir, { recursive: true });
+
+    // 1. Download and save scene images
+    const imagePaths: string[] = [];
+    for (let i = 0; i < scenePlan.scenes.length; i++) {
+      const scene = scenePlan.scenes[i]!;
+      const asset = visuals.assets.find((a) => a.sceneId === scene.id) || visuals.assets[i];
+      const imgPath = path.join(scenesDir, `scene_${String(i + 1).padStart(2, "0")}.jpg`);
+
+      if (asset?.url.startsWith("http://") || asset?.url.startsWith("https://")) {
+        try {
+          const resp = await fetch(asset.url);
+          if (resp.ok) {
+            writeFileSync(imgPath, Buffer.from(await resp.arrayBuffer()));
+          }
+        } catch {}
+      } else if (asset?.url.startsWith("data:image/")) {
+        try {
+          const matches = asset.url.match(/^data:image\/([a-zA-Z+]+);base64,(.+)$/);
+          if (matches && matches[2]) {
+            writeFileSync(imgPath, Buffer.from(matches[2], "base64"));
+          } else if (asset.url.startsWith("data:image/svg+xml")) {
+            const svgPath = path.join(scenesDir, `scene_${String(i + 1).padStart(2, "0")}.svg`);
+            const svgContent = decodeURIComponent(asset.url.replace("data:image/svg+xml;utf8,", ""));
+            writeFileSync(svgPath, svgContent);
+          }
+        } catch {}
+      }
+      imagePaths.push(imgPath);
+    }
+
+    // 2. Concatenate and save narration audio segments
+    const audioBuffers: Buffer[] = [];
+    for (let i = 0; i < voiceOver.segments.length; i++) {
+      const seg = voiceOver.segments[i]!;
+      if (seg.audioUrl.startsWith("data:audio/mp3;base64,")) {
+        const b64 = seg.audioUrl.replace("data:audio/mp3;base64,", "");
+        audioBuffers.push(Buffer.from(b64, "base64"));
+      }
+    }
+
+    const narrationPath = path.join(audioDir, "narration_full.mp3");
+    if (audioBuffers.length > 0) {
+      writeFileSync(narrationPath, Buffer.concat(audioBuffers));
+    }
+
+    // 3. Assemble concat text file for smooth video presentation
+    const concatFilePath = path.join(outputDir, "concat_scenes.txt");
+    const concatLines: string[] = [];
+    for (let i = 0; i < scenePlan.scenes.length; i++) {
+      const scene = scenePlan.scenes[i]!;
+      const imgPath = existsSync(imagePaths[i]!) ? imagePaths[i]! : null;
+      if (imgPath) {
+        concatLines.push(`file '${imgPath.replace(/\\/g, "/")}'`);
+        concatLines.push(`duration ${scene.duration}`);
+      }
+    }
+    // Repeat last image per FFmpeg concat demuxer requirement
+    if (imagePaths[imagePaths.length - 1] && existsSync(imagePaths[imagePaths.length - 1]!)) {
+      concatLines.push(`file '${imagePaths[imagePaths.length - 1]!.replace(/\\/g, "/")}'`);
+    }
+
+    if (concatLines.length === 0) return false;
+    writeFileSync(concatFilePath, concatLines.join("\n"));
+
+    // 4. Run FFmpeg command to compile final documentary video
+    const args = [
+      "-y",
+      "-f", "concat",
+      "-safe", "0",
+      "-i", concatFilePath,
+    ];
+
+    if (existsSync(narrationPath)) {
+      args.push("-i", narrationPath);
+      args.push("-c:a", "aac", "-b:a", "192k");
+    }
+
+    args.push(
+      "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,format=yuv420p",
+      "-c:v", "libx264",
+      "-pix_fmt", "yuv420p",
+      "-r", "30",
+      "-movflags", "+faststart",
+      outputVideoPath
+    );
+
+    const proc = Bun.spawn([ffmpegBin, ...args], {
+      stderr: "pipe",
+    });
+
+    const exitCode = await proc.exited;
+    return exitCode === 0;
+  } catch (err) {
+    console.error("[FFmpeg Rendering Error]:", err);
+    return false;
+  }
+}
+
+/**
  * Curioverse Editor Agent
  * Constructs the multi-track Timeline JSON (video, narration, music, subtitles, text overlays),
- * produces timed SRT/WebVTT subtitles, and compiles the FFmpeg rendering pipeline.
+ * produces timed SRT/WebVTT subtitles, and executes the FFmpeg rendering pipeline into a final MP4.
  */
 export async function editorAgent(
   scenePlan: ScenePlan,
@@ -171,14 +304,25 @@ export async function editorAgent(
     tracks,
   };
 
-  const outputVideoPath = "dist/renders/final_documentary.mp4";
+  const outputVideoPath = "output/final_documentary.mp4";
   const ffmpegCommand = compileFFmpegCommand(timeline, outputVideoPath);
+
+  let renderStatus: "COMPLETED" | "READY_TO_RENDER" | "SIMULATED" = "READY_TO_RENDER";
+  const hasFFmpeg = Boolean(getFFmpegBinaryPath());
+
+  if (hasFFmpeg) {
+    const rendered = await executeVideoRender(scenePlan, visuals, voiceOver, outputVideoPath);
+    if (rendered) {
+      renderStatus = "COMPLETED";
+      console.log(`[Editor Agent] Video successfully rendered to: ${outputVideoPath}`);
+    }
+  }
 
   return {
     timeline,
     subtitles,
     outputVideoPath,
-    renderStatus: "READY_TO_RENDER",
+    renderStatus,
     ffmpegCommand,
     duration: timeline.duration,
   };

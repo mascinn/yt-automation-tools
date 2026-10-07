@@ -168,6 +168,22 @@ function renderResults(data) {
   document.getElementById("display-duration").innerText = `~${(data.estimatedDuration / 60).toFixed(1)} mins (${data.estimatedDuration}s)`;
   document.getElementById("display-scenes-count").innerText = `${data.scenes ? data.scenes.length : 0} scenes`;
 
+  // Video player & download button
+  const downloadBtn = document.getElementById("download-video-btn");
+  const videoPlayerContainer = document.getElementById("video-player-container");
+  const videoPlayer = document.getElementById("final-video-player");
+  const videoSource = document.getElementById("video-source");
+
+  if (data.render && data.render.renderStatus === "COMPLETED") {
+    if (downloadBtn) downloadBtn.classList.remove("hidden");
+    if (videoPlayerContainer) videoPlayerContainer.classList.remove("hidden");
+    if (videoSource) videoSource.src = `/output/final_documentary.mp4?t=${Date.now()}`;
+    if (videoPlayer) videoPlayer.load();
+  } else {
+    if (downloadBtn) downloadBtn.classList.add("hidden");
+    if (videoPlayerContainer) videoPlayerContainer.classList.add("hidden");
+  }
+
   // 2. Storyboard Tab
   const sbContainer = document.getElementById("storyboard-container");
   sbContainer.innerHTML = "";

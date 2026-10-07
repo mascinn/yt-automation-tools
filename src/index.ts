@@ -31,6 +31,21 @@ app.get("/dashboard", async (c) => {
   return c.html(await file.text());
 });
 
+// Serve Rendered Videos & Output Media
+app.get("/output/:filename", async (c) => {
+  const filename = c.req.param("filename");
+  const file = Bun.file(`./output/${filename}`);
+  if (await file.exists()) {
+    return new Response(file, {
+      headers: {
+        "Content-Type": filename.endsWith(".mp4") ? "video/mp4" : "application/octet-stream",
+        "Accept-Ranges": "bytes",
+      },
+    });
+  }
+  return c.text("File not found", 404);
+});
+
 // Root & Health Check
 app.get("/", async (c) => {
   const accept = c.req.header("Accept") || "";
