@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Curioverse Studio — AI YouTube Production House</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- Ambient background glow elements -->
+  <div class="glow-orb orb-1"></div>
+  <div class="glow-orb orb-2"></div>
+  <div class="glow-orb orb-3"></div>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo-mark">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="10" stroke="url(#logo-grad)" stroke-width="2.5"/>
+          <circle cx="12" cy="12" r="4.5" fill="url(#logo-grad)"/>
+          <path d="M12 2V6M12 18V22M2 12H6M18 12H22" stroke="url(#logo-grad)" stroke-width="2" stroke-linecap="round"/>
+          <defs>
+            <linearGradient id="logo-grad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#818CF8"/>
+              <stop offset="1" stop-color="#C084FC"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div>
+        <h1 class="logo-text">CURIOVERSE</h1>
+        <p class="tagline">AI-Powered Documentary Production Studio</p>
+      </div>
+    </div>
+    <div class="header-badges">
+      <span class="badge badge-safety">
+        <span class="pulse-dot green"></span> Safety: AUTO_PUBLISH=false
+      </span>
+      <span class="badge badge-model">
+        <span class="pulse-dot purple"></span> Engine: Multi-Agent v7.0
+      </span>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+    <!-- Studio Input Section -->
+    <section class="studio-input-card">
+      <div class="input-header">
+        <h2>Generate Documentary Package</h2>
+        <p>Enter any curiosity-driven question or topic to transform it into a full YouTube production package.</p>
+      </div>
+
+      <div class="input-form">
+        <div class="input-wrapper">
+          <input 
+            type="text" 
+            id="topic-input" 
+            placeholder="e.g. Why do humans remember embarrassing moments before falling asleep?" 
+            value="Why do humans dream?"
+          />
+          <button id="generate-btn" class="btn btn-primary">
+            <span class="btn-icon">⚡</span>
+            <span class="btn-text">Generate Package</span>
+          </button>
+        </div>
+
+        <div class="chips-container">
+          <span class="chips-label">Inspiration Topics:</span>
+          <button class="chip" data-topic="Why do humans dream?">Why do humans dream?</button>
+          <button class="chip" data-topic="Why do humans remember embarrassing moments before falling asleep?">Embarrassing moments before sleep</button>
+          <button class="chip" data-topic="What happens if all honeybees suddenly disappear?">If all honeybees disappear</button>
+          <button class="chip" data-topic="Why does time feel faster as we get older?">Why time speeds up with age</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pipeline Progress Section -->
+    <section id="pipeline-progress" class="pipeline-progress-card hidden">
+      <div class="pipeline-header">
+        <div class="pipeline-title-group">
+          <div class="spinner"></div>
+          <div>
+            <h3 id="pipeline-current-step">Orchestrating Multi-Agent Pipeline...</h3>
+            <p id="pipeline-step-desc">Running agents from academic research to YouTube distribution package</p>
+          </div>
+        </div>
+        <div id="pipeline-percent" class="pipeline-badge">0%</div>
+      </div>
+
+      <div class="pipeline-steps-grid">
+        <div class="p-step" id="step-research"><span class="step-num">1</span> Research</div>
+        <div class="p-step" id="step-factcheck"><span class="step-num">2</span> Fact Check</div>
+        <div class="p-step" id="step-script"><span class="step-num">3</span> Script Arc</div>
+        <div class="p-step" id="step-scenes"><span class="step-num">4</span> Scenes</div>
+        <div class="p-step" id="step-visuals"><span class="step-num">5</span> Visuals 16:9</div>
+        <div class="p-step" id="step-voice"><span class="step-num">6</span> Voice-Over</div>
+        <div class="p-step" id="step-editor"><span class="step-num">7</span> Timeline</div>
+        <div class="p-step" id="step-thumbnail"><span class="step-num">8</span> Thumbnail</div>
+        <div class="p-step" id="step-metadata"><span class="step-num">9</span> Metadata</div>
+        <div class="p-step" id="step-qa"><span class="step-num">10</span> QA Audit</div>
+        <div class="p-step" id="step-approval"><span class="step-num">11</span> Approval</div>
+      </div>
+    </section>
+
+    <!-- Results Workspace Section -->
+    <section id="results-workspace" class="results-workspace hidden">
+      <!-- Master Video Banner -->
+      <div class="video-overview-card">
+        <div class="video-info-main">
+          <span class="status-pill verified">✔ QA VERIFIED (Score: <span id="display-qa-score">95</span>/100)</span>
+          <h2 id="display-video-title">The Architecture of Nightmares: Why Your Brain Still Dreams</h2>
+          <p id="display-video-hook" class="video-hook"></p>
+          <div class="video-stats-row">
+            <span class="stat-item">⏱ <strong>Duration:</strong> <span id="display-duration">~6.8 mins</span></span>
+            <span class="stat-item">🎬 <strong>Scenes:</strong> <span id="display-scenes-count">8 scenes</span></span>
+            <span class="stat-item">🎙 <strong>Voice:</strong> Onyx (Documentary Pacing)</span>
+            <span class="stat-item">📺 <strong>Format:</strong> 1920×1080 30fps Widescreen</span>
+          </div>
+        </div>
+        <div class="video-actions">
+          <button class="btn btn-secondary" id="scroll-to-publish-btn">
+            🚀 Review & Publish
+          </button>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="tabs-nav">
+        <button class="tab-btn active" data-tab="tab-storyboard">🎬 Storyboard & Scenes</button>
+        <button class="tab-btn" data-tab="tab-script">📜 Documentary Script</button>
+        <button class="tab-btn" data-tab="tab-thumbnails">🖼️ Thumbnail Studio</button>
+        <button class="tab-btn" data-tab="tab-metadata">🏷️ YouTube Metadata & SEO</button>
+        <button class="tab-btn" data-tab="tab-factcheck">🛡️ QA & Fact Audit</button>
+        <button class="tab-btn highlight" data-tab="tab-publish">🚀 YouTube Publish Gate</button>
+      </div>
+
+      <!-- Tab 1: Storyboard & Scenes -->
+      <div class="tab-content active" id="tab-storyboard">
+        <div class="section-title-bar">
+          <h3>Editorial Illustrated Storyboard</h3>
+          <p>Curated 8–25 second scenes with camera motion plans and consistent character profiles.</p>
+        </div>
+        <div class="storyboard-grid" id="storyboard-container">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- Tab 2: Script -->
+      <div class="tab-content" id="tab-script">
+        <div class="section-title-bar">
+          <h3>8-Stage Documentary Storytelling Arc</h3>
+          <p>Structured narrative flow engineered for cognitive curiosity and retention.</p>
+        </div>
+        <div class="script-sections-list" id="script-container">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- Tab 3: Thumbnail Studio -->
+      <div class="tab-content" id="tab-thumbnails">
+        <div class="section-title-bar">
+          <h3>Curiosity Thumbnail Concepts</h3>
+          <p>Designed with high visual contrast and concise 2–4 word text optimized for mobile feed readability.</p>
+        </div>
+        <div class="thumbnails-grid" id="thumbnails-container">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- Tab 4: Metadata & SEO -->
+      <div class="tab-content" id="tab-metadata">
+        <div class="section-title-bar">
+          <h3>YouTube Metadata & SEO Strategy</h3>
+          <p>Title scoring, automated chapters, academic citations, and searchable tags.</p>
+        </div>
+        <div class="metadata-layout">
+          <div class="meta-card">
+            <h4>Scored Title Candidates</h4>
+            <div id="titles-container" class="title-candidates-list"></div>
+          </div>
+          <div class="meta-card">
+            <h4>Generated YouTube Description & Chapters</h4>
+            <textarea id="meta-description-preview" class="meta-textarea" readonly rows="12"></textarea>
+            <button class="btn btn-sm btn-secondary copy-btn" data-target="meta-description-preview">📋 Copy Description</button>
+          </div>
+          <div class="meta-card">
+            <h4>Tags & SEO Keywords (Category 27: Education)</h4>
+            <div id="tags-container" class="tags-cloud"></div>
+            <div id="hashtags-container" class="hashtags-cloud"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 5: Fact Check & QA -->
+      <div class="tab-content" id="tab-factcheck">
+        <div class="section-title-bar">
+          <h3>Fact Checking & Epistemic Audit</h3>
+          <p>Every claim classified into 6 epistemic tiers to prevent speculative sensationalism.</p>
+        </div>
+        <div class="factcheck-layout">
+          <div class="qa-score-card">
+            <div class="score-circle">
+              <span id="qa-circle-score">95</span>
+              <span class="score-label">QA SCORE</span>
+            </div>
+            <div class="qa-score-info">
+              <h4>Multi-Dimensional Editorial Audit Passed</h4>
+              <p>Audited across academic citations, script clichés, visual aspect ratios, audio durations, and YouTube metadata limits.</p>
+              <div id="qa-recommendations" class="qa-recommendations"></div>
+            </div>
+          </div>
+
+          <div class="claims-list-card">
+            <h4>Claim Epistemic Verifications</h4>
+            <div id="claims-container" class="claims-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 6: YouTube Publish Gate -->
+      <div class="tab-content" id="tab-publish">
+        <div class="publish-gate-card">
+          <div class="gate-header">
+            <div class="gate-icon">🛡️</div>
+            <div>
+              <h3>Human Approval & YouTube Distribution Gate</h3>
+              <p>Channel Safety Rule: Public release is permanently locked until explicit human sign-off.</p>
+            </div>
+          </div>
+
+          <div class="publish-form">
+            <div class="form-row">
+              <label for="publish-visibility">Target Privacy Status:</label>
+              <select id="publish-visibility" class="select-input">
+                <option value="PRIVATE" selected>Private (Safest • Recommended for review)</option>
+                <option value="UNLISTED">Unlisted (Shareable preview link)</option>
+                <option value="PUBLIC">Public (Live release to subscribers)</option>
+              </select>
+            </div>
+
+            <div class="form-row review-confirm-box">
+              <label class="checkbox-container">
+                <input type="checkbox" id="human-approval-check" checked>
+                <span class="checkmark"></span>
+                <span class="checkbox-label">
+                  <strong>I have reviewed this documentary package.</strong>
+                  <small>I confirm the script, visual storyboard, and metadata meet Curioverse quality standards.</small>
+                </span>
+              </label>
+            </div>
+
+            <div class="publish-action-bar">
+              <button id="publish-to-yt-btn" class="btn btn-publish">
+                <span class="btn-icon">🚀</span>
+                <span>Approve & Publish to YouTube</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Publish Live Result Output -->
+          <div id="publish-result-box" class="publish-result-box hidden">
+            <div class="success-banner">
+              <span class="check-icon">✓</span>
+              <div>
+                <h4>Video Successfully Distributed to YouTube!</h4>
+                <p id="publish-result-subtitle"></p>
+              </div>
+            </div>
+            <div class="result-details-grid">
+              <div class="result-item">
+                <span class="label">Video URL</span>
+                <a id="res-video-url" href="#" target="_blank" class="link-bold">https://youtu.be/...</a>
+              </div>
+              <div class="result-item">
+                <span class="label">Video ID</span>
+                <span id="res-video-id" class="code-val">-</span>
+              </div>
+              <div class="result-item">
+                <span class="label">Privacy Status</span>
+                <span id="res-video-privacy" class="badge badge-privacy">-</span>
+              </div>
+              <div class="result-item">
+                <span class="label">Custom Thumbnail</span>
+                <span id="res-thumb-status" class="status-val">Uploaded</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

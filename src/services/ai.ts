@@ -95,6 +95,96 @@ export class OpenAICompatibleAIService implements AIService {
 }
 
 /**
+ * Native Google Gemini implementation of AIService.
+ * Compatible with Google AI Studio (gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash).
+ */
+export class GeminiAIService implements AIService {
+  private readonly apiKey: string;
+  private readonly model: string;
+
+  constructor(config: { apiKey: string; model?: string }) {
+    if (!config.apiKey) {
+      throw new Error("GeminiAIService requires a Gemini API key.");
+    }
+    this.apiKey = config.apiKey;
+    this.model = config.model || process.env.GEMINI_MODEL || process.env.AI_MODEL || "gemini-2.0-flash";
+  }
+
+  async generateText(input: GenerateTextInput): Promise<GenerateTextOutput> {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(this.model)}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
+
+    const requestBody: Record<string, unknown> = {
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: input.prompt }],
+        },
+      ],
+      generationConfig: {
+        temperature: input.temperature ?? 0.7,
+      },
+    };
+
+    if (input.systemPrompt) {
+      requestBody.systemInstruction = {
+        parts: [{ text: input.systemPrompt }],
+      };
+    }
+
+    if (input.responseFormat === "json") {
+      (requestBody.generationConfig as Record<string, unknown>).responseMimeType = "application/json";
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `Gemini API request failed with status ${response.status} (${response.statusText})`;
+      try {
+        const errorJson = JSON.parse(errorText) as { error?: { message?: string } };
+        if (errorJson.error?.message) {
+          errorMessage += `: ${errorJson.error.message}`;
+        }
+      } catch {
+        errorMessage += `: ${errorText}`;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const data = (await response.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      usageMetadata?: {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        totalTokenCount?: number;
+      };
+    };
+
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (typeof text !== "string") {
+      throw new Error("Gemini API returned an empty or invalid response.");
+    }
+
+    return {
+      text,
+      usage: data.usageMetadata
+        ? {
+            promptTokens: data.usageMetadata.promptTokenCount,
+            completionTokens: data.usageMetadata.candidatesTokenCount,
+            totalTokens: data.usageMetadata.totalTokenCount,
+          }
+        : undefined,
+    };
+  }
+}
+
+/**
  * Mock AI service used when no API key is provided or for offline testing.
  * Produces structured, high-quality responses matching Curioverse editorial criteria.
  */
@@ -484,11 +574,27 @@ export class MockAIService implements AIService {
  * Creates an AIService instance based on environment variables or explicit options.
  */
 export function createAIService(options?: AIServiceConfig): AIService {
-  const provider = options?.provider || process.env.AI_PROVIDER || (process.env.AI_API_KEY ? "openai" : "mock");
-  const apiKey = options?.apiKey || process.env.AI_API_KEY;
+  const provider = (
+    options?.provider ||
+    process.env.AI_PROVIDER ||
+    (process.env.GEMINI_API_KEY ? "gemini" : process.env.AI_API_KEY ? "openai" : "mock")
+  ).toLowerCase();
+
+  const apiKey =
+    options?.apiKey ||
+    (provider === "gemini"
+      ? process.env.GEMINI_API_KEY || process.env.AI_API_KEY
+      : process.env.AI_API_KEY);
 
   if (provider === "mock" || !apiKey) {
     return new MockAIService();
+  }
+
+  if (provider === "gemini") {
+    return new GeminiAIService({
+      apiKey,
+      model: options?.model || process.env.GEMINI_MODEL,
+    });
   }
 
   return new OpenAICompatibleAIService({

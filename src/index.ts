@@ -11,8 +11,36 @@ app.use("*", async (c, next) => {
   console.log(`[${new Date().toISOString()}] ${c.req.method} ${c.req.url} - ${c.res.status} (${ms}ms)`);
 });
 
+// Static Dashboard Assets
+app.get("/style.css", async () => {
+  const file = Bun.file("./public/style.css");
+  return new Response(await file.text(), {
+    headers: { "Content-Type": "text/css; charset=utf-8" },
+  });
+});
+
+app.get("/app.js", async () => {
+  const file = Bun.file("./public/app.js");
+  return new Response(await file.text(), {
+    headers: { "Content-Type": "application/javascript; charset=utf-8" },
+  });
+});
+
+app.get("/dashboard", async (c) => {
+  const file = Bun.file("./public/index.html");
+  return c.html(await file.text());
+});
+
 // Root & Health Check
-app.get("/", (c) => {
+app.get("/", async (c) => {
+  const accept = c.req.header("Accept") || "";
+  if (accept.includes("text/html")) {
+    const file = Bun.file("./public/index.html");
+    if (await file.exists()) {
+      return c.html(await file.text());
+    }
+  }
+
   return c.json({
     name: "Curioverse API",
     phase: "Phase 7: YouTube Upload",
@@ -21,6 +49,7 @@ app.get("/", (c) => {
       generate: "POST /api/content/generate",
       publish: "POST /api/content/publish",
       health: "GET /health",
+      dashboard: "GET / (in browser) or GET /dashboard",
     },
   });
 });
