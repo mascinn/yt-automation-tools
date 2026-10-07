@@ -19,6 +19,12 @@ import { GoogleYouTubeService, MockYouTubeService } from "../src/services/youtub
 import type { GenerateContentResponse, PublishContentResponse } from "../src/types/content.ts";
 
 describe("Curioverse Production Pipeline (Phases 1-7)", () => {
+  // Ensure unit tests execute deterministically with offline mock services
+  process.env.AI_PROVIDER = "mock";
+  process.env.IMAGE_PROVIDER = "mock";
+  process.env.TTS_PROVIDER = "mock";
+  process.env.YOUTUBE_PROVIDER = "mock";
+
   const mockAI = new MockAIService();
   const mockImage = new MockImageService();
   const mockVoice = new MockVoiceService();

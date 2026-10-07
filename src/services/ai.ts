@@ -107,7 +107,7 @@ export class GeminiAIService implements AIService {
       throw new Error("GeminiAIService requires a Gemini API key.");
     }
     this.apiKey = config.apiKey;
-    this.model = config.model || process.env.GEMINI_MODEL || process.env.AI_MODEL || "gemini-2.0-flash";
+    this.model = config.model || process.env.GEMINI_MODEL || process.env.AI_MODEL || "gemini-3.1-flash-lite";
   }
 
   async generateText(input: GenerateTextInput): Promise<GenerateTextOutput> {
