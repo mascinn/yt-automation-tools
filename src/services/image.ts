@@ -125,19 +125,97 @@ export class MockImageService implements ImageService {
 }
 
 /**
+ * Pollinations AI implementation of ImageService.
+ * Free, high-resolution 16:9 widescreen AI illustration generator requiring zero API keys.
+ */
+export class PollinationsImageService implements ImageService {
+  async generateImage(input: GenerateImageInput): Promise<GenerateImageOutput> {
+    const width = input.aspectRatio === "9:16" ? 720 : input.aspectRatio === "1:1" ? 1024 : 1280;
+    const height = input.aspectRatio === "9:16" ? 1280 : input.aspectRatio === "1:1" ? 1024 : 720;
+
+    const styleEnhanced = `${input.prompt}, editorial 2D illustration, documentary aesthetic, muted colors, textured grain, cinematic lighting`;
+    const cleanPrompt = encodeURIComponent(styleEnhanced.slice(0, 400));
+    const seed = Math.floor(Math.random() * 1000000);
+    const imageUrl = `https://image.pollinations.ai/prompt/${cleanPrompt}?width=${width}&height=${height}&nologo=true&seed=${seed}`;
+
+    return {
+      url: imageUrl,
+      format: "jpg",
+      revisedPrompt: styleEnhanced,
+    };
+  }
+}
+
+/**
+ * Google Gemini / Imagen implementation of ImageService.
+ * Calls Google AI Studio imagen/gemini image models with seamless fallback.
+ */
+export class GeminiImageService implements ImageService {
+  private readonly apiKey: string;
+  private readonly fallbackService: ImageService;
+
+  constructor(apiKey?: string) {
+    this.apiKey = apiKey || process.env.GEMINI_API_KEY || "";
+    this.fallbackService = new PollinationsImageService();
+  }
+
+  async generateImage(input: GenerateImageInput): Promise<GenerateImageOutput> {
+    if (!this.apiKey) {
+      return this.fallbackService.generateImage(input);
+    }
+
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${encodeURIComponent(this.apiKey)}`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instances: [{ prompt: input.prompt }],
+          parameters: { sampleCount: 1, aspectRatio: input.aspectRatio || "16:9", outputMimeType: "image/jpeg" },
+        }),
+      });
+
+      if (response.ok) {
+        const data = (await response.json()) as { predictions?: Array<{ bytesBase64Encoded?: string }> };
+        const b64 = data.predictions?.[0]?.bytesBase64Encoded;
+        if (b64) {
+          return {
+            url: `data:image/jpeg;base64,${b64}`,
+            format: "jpg",
+            revisedPrompt: input.prompt,
+          };
+        }
+      }
+    } catch {
+      // Fallback seamlessly on quota limit or network issue
+    }
+
+    return this.fallbackService.generateImage(input);
+  }
+}
+
+/**
  * Creates an ImageService instance based on environment variables or explicit options.
  */
 export function createImageService(options?: ImageServiceConfig): ImageService {
-  const provider = options?.provider || process.env.IMAGE_PROVIDER || (process.env.IMAGE_API_KEY ? "openai" : "mock");
-  const apiKey = options?.apiKey || process.env.IMAGE_API_KEY;
+  const provider = (options?.provider || process.env.IMAGE_PROVIDER || "mock").toLowerCase();
 
-  if (provider === "mock" || !apiKey) {
-    return new MockImageService();
+  if (provider === "pollinations" || provider === "free") {
+    return new PollinationsImageService();
   }
 
-  return new OpenAIImageService({
-    apiKey,
-    model: options?.model || process.env.IMAGE_MODEL,
-    baseURL: options?.baseURL || process.env.IMAGE_BASE_URL,
-  });
+  if (provider === "gemini" || (provider === "google" && process.env.GEMINI_API_KEY)) {
+    return new GeminiImageService();
+  }
+
+  const apiKey = options?.apiKey || process.env.IMAGE_API_KEY;
+  if (provider === "openai" && apiKey) {
+    return new OpenAIImageService({
+      apiKey,
+      model: options?.model || process.env.IMAGE_MODEL,
+      baseURL: options?.baseURL || process.env.IMAGE_BASE_URL,
+    });
+  }
+
+  return new MockImageService();
 }
