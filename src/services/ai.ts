@@ -135,52 +135,79 @@ export class GeminiAIService implements AIService {
       (requestBody.generationConfig as Record<string, unknown>).responseMimeType = "application/json";
     }
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    });
+    let lastError: Error | null = null;
+    const maxRetries = 3;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorMessage = `Gemini API request failed with status ${response.status} (${response.statusText})`;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const errorJson = JSON.parse(errorText) as { error?: { message?: string } };
-        if (errorJson.error?.message) {
-          errorMessage += `: ${errorJson.error.message}`;
-        }
-      } catch {
-        errorMessage += `: ${errorText}`;
-      }
-      throw new Error(errorMessage);
-    }
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        });
 
-    const data = (await response.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-      usageMetadata?: {
-        promptTokenCount?: number;
-        candidatesTokenCount?: number;
-        totalTokenCount?: number;
-      };
-    };
-
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (typeof text !== "string") {
-      throw new Error("Gemini API returned an empty or invalid response.");
-    }
-
-    return {
-      text,
-      usage: data.usageMetadata
-        ? {
-            promptTokens: data.usageMetadata.promptTokenCount,
-            completionTokens: data.usageMetadata.candidatesTokenCount,
-            totalTokens: data.usageMetadata.totalTokenCount,
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorMessage = `Gemini API request failed with status ${response.status} (${response.statusText})`;
+          try {
+            const errorJson = JSON.parse(errorText) as { error?: { message?: string } };
+            if (errorJson.error?.message) {
+              errorMessage += `: ${errorJson.error.message}`;
+            }
+          } catch {
+            errorMessage += `: ${errorText}`;
           }
-        : undefined,
-    };
+
+          // If 503 (temporarily unavailable) or 429 (rate limit), retry after backoff
+          if ((response.status === 503 || response.status === 429) && attempt < maxRetries) {
+            const delayMs = attempt * 2000;
+            console.warn(`[Gemini API] Got ${response.status}. Retrying attempt ${attempt + 1}/${maxRetries} in ${delayMs}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+            continue;
+          }
+
+          throw new Error(errorMessage);
+        }
+
+        const data = (await response.json()) as {
+          candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+          usageMetadata?: {
+            promptTokenCount?: number;
+            candidatesTokenCount?: number;
+            totalTokenCount?: number;
+          };
+        };
+
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (typeof text !== "string") {
+          throw new Error("Gemini API returned an empty or invalid response.");
+        }
+
+        return {
+          text,
+          usage: data.usageMetadata
+            ? {
+                promptTokens: data.usageMetadata.promptTokenCount,
+                completionTokens: data.usageMetadata.candidatesTokenCount,
+                totalTokens: data.usageMetadata.totalTokenCount,
+              }
+            : undefined,
+        };
+      } catch (err) {
+        lastError = err as Error;
+        if (attempt < maxRetries && (lastError.message.includes("503") || lastError.message.includes("429"))) {
+          const delayMs = attempt * 2000;
+          console.warn(`[Gemini API] Error caught: ${lastError.message}. Retrying in ${delayMs}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        }
+        throw lastError;
+      }
+    }
+
+    throw lastError || new Error("Gemini API failed after maximum retries.");
   }
 }
 
